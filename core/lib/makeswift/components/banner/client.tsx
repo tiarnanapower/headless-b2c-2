@@ -6,11 +6,12 @@ import clsx from 'clsx';
 type MSBannerProps = {
   className?: string;
   bannerText?: string;
+  fontFamily?: string;
   id?: string;
   textSize: 'small' | 'medium' | 'large' | 'x-large';
 };
 
-export function MSBanner({ className, bannerText, id = 'bannerTest', textSize }: MSBannerProps) {
+export function MSBanner({ className, bannerText, id = 'bannerTest', textSize, fontFamily }: MSBannerProps) {
   return (
     <>
       <Banner
@@ -27,6 +28,7 @@ export function MSBanner({ className, bannerText, id = 'bannerTest', textSize }:
         )}
       >
         <span
+         style={{ fontFamily }}
           className={clsx('font-medium', {
             'text-sm': textSize === 'small',
             'text-base': textSize === 'medium',

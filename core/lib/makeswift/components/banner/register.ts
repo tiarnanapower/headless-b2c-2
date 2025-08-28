@@ -3,6 +3,7 @@ import { Select, Style, TextInput } from '@makeswift/runtime/controls';
 import { runtime } from '~/lib/makeswift/runtime';
 
 import { MSBanner } from './client';
+import { FontFamily } from '../../controls/font-tokens';
 
 runtime.registerComponent(MSBanner, {
   type: 'primitive-banner',
@@ -11,6 +12,7 @@ runtime.registerComponent(MSBanner, {
   props: {
     className: Style(),
     bannerText: TextInput({ label: 'Name', defaultValue: '' }),
+    fontFamily: FontFamily({ label: 'Font', defaultValue: FontFamily.Body }),
     textSize: Select({
          label: 'Text size',
          options: [
