@@ -160,6 +160,31 @@ export const Footer = ({
                       'grid max-w-5xl grid-cols-1 gap-y-8 @sm:grid-cols-2 @xl:gap-y-10 @2xl:grid-cols-3 @6xl:[grid-template-columns:_repeat(auto-fill,_minmax(220px,_1fr))]',
                     )}
                   >
+                    <div className="pr-8">
+                          <span className="mb-3 block font-semibold text-[var(--footer-section-title,hsl(var(--foreground)))]">
+                            Institutions
+                          </span>
+                 
+
+                        <ul>         
+                              <li>
+                                <Link
+                                  className="block rounded-lg py-2 text-sm font-medium text-[var(--footer-link,hsl(var(--contrast-500)))] ring-[var(--footer-focus,hsl(var(--primary)))] transition-colors duration-300 hover:text-[var(--footer-link-hover,hsl(var(--foreground)))] focus-visible:outline-0 focus-visible:ring-2"
+                                  href="https://demo-store-core.vercel.app/#/register"
+                                >    
+                                Sign Up                       
+                                </Link>
+                              </li>     
+                              <li>
+                                <Link
+                                  className="block rounded-lg py-2 text-sm font-medium text-[var(--footer-link,hsl(var(--contrast-500)))] ring-[var(--footer-focus,hsl(var(--primary)))] transition-colors duration-300 hover:text-[var(--footer-link-hover,hsl(var(--foreground)))] focus-visible:outline-0 focus-visible:ring-2"
+                                  href="https://demo-store-core.vercel.app/login/"
+                                >    
+                                Log In                    
+                                </Link>
+                              </li>                               
+                        </ul>
+                      </div>
                     {sections.map(({ title, links }, i) => (
                       <div className="pr-8" key={i}>
                         {title != null && (
