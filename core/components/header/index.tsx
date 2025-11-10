@@ -137,6 +137,9 @@ export const Header = async () => {
     return currencyCode ?? defaultCurrency?.id;
   });
 
+  const customerAccessToken = await getSessionCustomerAccessToken();
+  const isCustomerGroup = !!customerAccessToken;
+
   return (
     <HeaderSection
       navigation={{
@@ -161,6 +164,7 @@ export const Header = async () => {
         activeCurrencyId: streamableActiveCurrencyId,
         currencyAction: switchCurrency,
         switchCurrencyLabel: t('SwitchCurrency.label'),
+        customerGroup: isCustomerGroup,
       }}
     />
   );
