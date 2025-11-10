@@ -161,10 +161,6 @@ export const Footer = ({
                     )}
                   >
                     <div className="pr-8">
-                          <span className="mb-3 block font-semibold text-[var(--footer-section-title,hsl(var(--foreground)))]">
-                            Institutions
-                          </span>
-                 
 
                         <ul>         
                               <li>
