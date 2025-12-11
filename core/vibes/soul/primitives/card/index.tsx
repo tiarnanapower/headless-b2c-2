@@ -123,7 +123,7 @@ export function Card({
         {textPosition === 'inside' && (
           <div
             className={clsx(
-              'absolute inset-0 flex items-end p-6 @xs:p-8',
+              'absolute inset-0 flex items-start p-6 @xs:p-8',
               showOverlay &&
                 'bg-gradient-to-b from-foreground/0 from-50% via-foreground/0 via-50% to-foreground/50 to-100%',
             )}
