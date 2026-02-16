@@ -1,4 +1,4 @@
-import { Checkbox, Image, Link, Select, Style, TextInput } from '@makeswift/runtime/controls';
+import { Checkbox, Color, Image, Link, Select, Style, TextInput } from '@makeswift/runtime/controls';
 
 import { runtime } from '~/lib/makeswift/runtime';
 
@@ -13,6 +13,31 @@ runtime.registerComponent(MSCard, {
     title: TextInput({ label: 'Title', defaultValue: 'Card' }),
     imageSrc: Image({ label: 'Image' }),
     imageAlt: TextInput({ label: 'Image alt', defaultValue: 'Card image' }),
+    imageOverlayText: TextInput({ label: 'Image overlay text', defaultValue: '' }),
+    imageOverlayTextColor: Color({ label: 'Image overlay text color', defaultValue: '#ffffff' }),
+    imageOverlayBackgroundColor: Color({
+      label: 'Image overlay background color',
+      defaultValue: 'rgba(0, 0, 0, 0.45)',
+    }),
+    imageOverlayTextSize: Select({
+      label: 'Image overlay text size',
+      options: [
+        { value: 'small', label: 'Small' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'large', label: 'Large' },
+      ],
+      defaultValue: 'medium',
+    }),
+    imageOverlayTextWeight: Select({
+      label: 'Image overlay text weight',
+      options: [
+        { value: 'normal', label: 'Normal' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'semibold', label: 'Semibold' },
+        { value: 'bold', label: 'Bold' },
+      ],
+      defaultValue: 'medium',
+    }),
     link: Link({ label: 'Link' }),
     aspectRatio: Select({
       label: 'Aspect ratio',

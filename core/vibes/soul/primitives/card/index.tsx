@@ -20,6 +20,11 @@ export interface CardProps extends CardContent {
   textPosition?: 'inside' | 'outside';
   textSize?: 'small' | 'medium' | 'large' | 'x-large';
   showOverlay?: boolean;
+  imageOverlayText?: string;
+  imageOverlayTextColor?: string;
+  imageOverlayBackgroundColor?: string;
+  imageOverlayTextSize?: 'small' | 'medium' | 'large';
+  imageOverlayTextWeight?: 'normal' | 'medium' | 'semibold' | 'bold';
 }
 
 // eslint-disable-next-line valid-jsdoc
@@ -55,6 +60,11 @@ export function Card({
   textPosition = 'outside',
   textSize = 'small',
   showOverlay = true,
+  imageOverlayText,
+  imageOverlayTextColor,
+  imageOverlayBackgroundColor,
+  imageOverlayTextSize = 'medium',
+  imageOverlayTextWeight = 'medium',
 }: CardProps) {
   return (
     <article
@@ -145,6 +155,28 @@ export function Card({
             >
               {title}
             </h3>
+          </div>
+        )}
+        {image != null && imageOverlayText != null && imageOverlayText !== '' && (
+          <div
+            className="absolute inset-x-0 bottom-0 z-10 p-4 @xs:p-5"
+            style={{ backgroundColor: imageOverlayBackgroundColor }}
+          >
+            <p
+              className={clsx('line-clamp-2 leading-tight', {
+                small: 'text-sm',
+                medium: 'text-base',
+                large: 'text-lg',
+              }[imageOverlayTextSize], {
+                normal: 'font-normal',
+                medium: 'font-medium',
+                semibold: 'font-semibold',
+                bold: 'font-bold',
+              }[imageOverlayTextWeight])}
+              style={{ color: imageOverlayTextColor }}
+            >
+              {imageOverlayText}
+            </p>
           </div>
         )}
       </div>
