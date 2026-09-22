@@ -6,13 +6,15 @@ import { parseWithZod } from '@conform-to/zod';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { z } from 'zod';
 
+import { DynamicFormActionArgs } from '@/vibes/soul/form/dynamic-form';
 import { Field, FieldGroup, schema } from '@/vibes/soul/form/dynamic-form/schema';
 import { signIn } from '~/auth';
 import { client } from '~/client';
 import { graphql, VariablesOf } from '~/client/graphql';
 import { FieldNameToFieldId } from '~/data-transformers/form-field-transformer/utils';
-import { redirect } from '~/i18n/routing';
+import { redirect } from '~/i18n/navigation-server';
 import { getCartId } from '~/lib/cart';
+import { assertRecaptchaTokenPresent, getRecaptchaFromForm } from '~/lib/recaptcha';
 
 import { ADDRESS_FIELDS_NAME_PREFIX, CUSTOMER_FIELDS_NAME_PREFIX } from './prefixes';
 
@@ -338,29 +340,46 @@ function parseRegisterCustomerInput(
 }
 
 export async function registerCustomer<F extends Field>(
-  prevState: { lastResult: SubmissionResult | null; fields: Array<F | FieldGroup<F>> },
+  { fields, passwordComplexity, countriesWithoutStates }: DynamicFormActionArgs<F>,
+  _prevState: {
+    lastResult: SubmissionResult | null;
+  },
   formData: FormData,
 ) {
   const t = await getTranslations('Auth.Register');
   const locale = await getLocale();
   const cartId = await getCartId();
 
-  const submission = parseWithZod(formData, { schema: schema(prevState.fields) });
+  const countryCode = formData.get('countryCode');
+  const currentCountry = typeof countryCode === 'string' ? countryCode : undefined;
+
+  const submission = parseWithZod(formData, {
+    schema: schema(fields, passwordComplexity, undefined, countriesWithoutStates, currentCountry),
+  });
 
   if (submission.status !== 'success') {
     return {
       lastResult: submission.reply(),
-      fields: prevState.fields,
+    };
+  }
+
+  const { siteKey, token } = await getRecaptchaFromForm(formData);
+  const recaptchaValidation = assertRecaptchaTokenPresent(siteKey, token, t('recaptchaRequired'));
+
+  if (!recaptchaValidation.success) {
+    return {
+      lastResult: submission.reply({ formErrors: recaptchaValidation.formErrors }),
     };
   }
 
   try {
-    const input = parseRegisterCustomerInput(submission.value, prevState.fields);
+    const input = parseRegisterCustomerInput(submission.value, fields);
     const response = await client.fetch({
       document: RegisterCustomerMutation,
       variables: {
         input,
-        // ...(recaptchaToken && { reCaptchaV2: { token: recaptchaToken } }),
+        reCaptchaV2:
+          recaptchaValidation.token != null ? { token: recaptchaValidation.token } : undefined,
       },
       fetchOptions: { cache: 'no-store' },
     });
@@ -372,7 +391,6 @@ export async function registerCustomer<F extends Field>(
         lastResult: submission.reply({
           formErrors: response.data.customer.registerCustomer.errors.map((error) => error.message),
         }),
-        fields: prevState.fields,
       };
     }
 
@@ -393,22 +411,19 @@ export async function registerCustomer<F extends Field>(
         lastResult: submission.reply({
           formErrors: error.errors.map(({ message }) => message),
         }),
-        fields: prevState.fields,
       };
     }
 
     if (error instanceof Error) {
       return {
         lastResult: submission.reply({ formErrors: [error.message] }),
-        fields: prevState.fields,
       };
     }
 
     return {
       lastResult: submission.reply({ formErrors: [t('somethingWentWrong')] }),
-      fields: prevState.fields,
     };
   }
 
-  return redirect({ href: '/account/orders', locale });
+  return await redirect({ href: '/account/orders', locale });
 }

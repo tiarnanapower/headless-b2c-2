@@ -1,4 +1,5 @@
 import { decodeJwt } from 'jose';
+import { cookies } from 'next/headers';
 import NextAuth, { type NextAuthConfig, User } from 'next-auth';
 import 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
@@ -8,6 +9,7 @@ import { z } from 'zod';
 import { anonymousSignIn, clearAnonymousSession } from '~/auth/anonymous-session';
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
+import { getSessionTokenCookieOptions } from '~/lib/auth/session-token-cookie-options';
 import { clearCartId, setCartId } from '~/lib/cart';
 import { serverToast } from '~/lib/server-toast';
 
@@ -127,7 +129,8 @@ async function loginWithPassword(credentials: unknown): Promise<User | null> {
   await clearAnonymousSession();
 
   return {
-    name: `${result.customer.firstName} ${result.customer.lastName}`,
+    firstName: result.customer.firstName,
+    lastName: result.customer.lastName,
     email: result.customer.email,
     customerAccessToken: result.customerAccessToken.value,
     cartId: result.cart?.entityId,
@@ -163,7 +166,8 @@ async function loginWithJwt(credentials: unknown): Promise<User | null> {
   await clearAnonymousSession();
 
   return {
-    name: `${result.customer.firstName} ${result.customer.lastName}`,
+    firstName: result.customer.firstName,
+    lastName: result.customer.lastName,
     email: result.customer.email,
     customerAccessToken: result.customerAccessToken.value,
     impersonatorId,
@@ -216,6 +220,24 @@ const config = {
         };
       }
 
+      // user can actually be undefined
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (user?.firstName !== undefined) {
+        token.user = {
+          ...token.user,
+          firstName: user.firstName,
+        };
+      }
+
+      // user can actually be undefined
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (user?.lastName !== undefined) {
+        token.user = {
+          ...token.user,
+          lastName: user.lastName,
+        };
+      }
+
       if (trigger === 'update') {
         const parsedSession = SessionUpdate.safeParse(session);
 
@@ -236,6 +258,14 @@ const config = {
 
       if (token.user?.cartId !== undefined) {
         session.user.cartId = token.user.cartId;
+      }
+
+      if (token.user?.firstName !== undefined) {
+        session.user.firstName = token.user.firstName;
+      }
+
+      if (token.user?.lastName !== undefined) {
+        session.user.lastName = token.user.lastName;
       }
 
       return session;
@@ -310,7 +340,47 @@ const config = {
   },
 } satisfies NextAuthConfig;
 
-export const { handlers, auth, signIn, signOut, unstable_update: updateSession } = NextAuth(config);
+const SESSION_TOKEN_NAME_RE = /^(__Secure-)?authjs\.session-token(\.\d+)?$/;
+
+// Auth.js sets Expires on session token cookies via cookies().set() when signIn/updateSession
+// are called from server actions. Re-set those cookies without Expires so they comply with
+// Essential classification (session cookies that expire when the browser closes).
+async function patchSessionTokenCookies() {
+  const cookieJar = await cookies();
+
+  cookieJar.getAll().forEach(({ name, value }) => {
+    if (SESSION_TOKEN_NAME_RE.test(name) && value) {
+      cookieJar.set(name, value, getSessionTokenCookieOptions(name, config));
+    }
+  });
+}
+
+const {
+  handlers,
+  auth,
+  signIn: authSignIn,
+  signOut,
+  unstable_update: authUpdateSession,
+} = NextAuth(config);
+
+export { handlers, auth, signOut };
+
+export const signIn = async (...args: Parameters<typeof authSignIn>) => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return await authSignIn(...args);
+  } finally {
+    await patchSessionTokenCookies();
+  }
+};
+
+export const updateSession = async (...args: Parameters<typeof authUpdateSession>) => {
+  try {
+    return await authUpdateSession(...args);
+  } finally {
+    await patchSessionTokenCookies();
+  }
+};
 
 export const getSessionCustomerAccessToken = async () => {
   try {

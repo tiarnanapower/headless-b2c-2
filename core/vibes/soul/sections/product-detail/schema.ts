@@ -23,6 +23,8 @@ type SelectField = {
 type CheckboxField = {
   type: 'checkbox';
   defaultValue?: string;
+  checkedValue: string;
+  uncheckedValue: string;
 } & FormField;
 
 type NumberInputField = {
@@ -52,6 +54,8 @@ type DateField = {
   type: 'date';
   defaultValue?: string;
   pattern?: string;
+  minDate?: string;
+  maxDate?: string;
 } & FormField;
 
 type SwatchRadioFieldOption =
