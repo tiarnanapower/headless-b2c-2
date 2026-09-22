@@ -6,7 +6,15 @@ import * as NavigationMenu from '@radix-ui/react-navigation-menu';
 import * as Popover from '@radix-ui/react-popover';
 import { clsx } from 'clsx';
 import debounce from 'lodash.debounce';
-import { ArrowRight, ChevronDown, Search, SearchIcon, ShoppingBag, User } from 'lucide-react';
+import {
+  ArrowRight,
+  ChevronDown,
+  GiftIcon,
+  Search,
+  SearchIcon,
+  ShoppingBag,
+  User,
+} from 'lucide-react';
 import { useParams, useSearchParams } from 'next/navigation';
 import React, {
   forwardRef,
@@ -29,6 +37,8 @@ import { ProductCard } from '@/vibes/soul/primitives/product-card';
 import { Link } from '~/components/link';
 import { usePathname, useRouter } from '~/i18n/routing';
 import { useSearch } from '~/lib/search';
+
+import { getLocalizedPathname } from './_actions/localized-pathname';
 
 interface Link {
   label: string;
@@ -77,6 +87,7 @@ export type SearchResult =
     };
 
 type CurrencyAction = Action<SubmissionResult | null, FormData>;
+type LocaleAction = (locale: string) => Promise<void> | void;
 type SearchAction<S extends SearchResult> = Action<
   {
     searchResults: S[] | null;
@@ -97,6 +108,7 @@ interface Props<S extends SearchResult> {
   linksPosition?: 'center' | 'left' | 'right';
   locales?: Locale[];
   activeLocaleId?: string;
+  localeAction?: LocaleAction;
   currencies?: Currency[];
   activeCurrencyId?: Streamable<string | undefined>;
   currencyAction?: CurrencyAction;
@@ -119,7 +131,9 @@ interface Props<S extends SearchResult> {
   searchLabel?: string;
   mobileMenuTriggerLabel?: string;
   switchCurrencyLabel?: string;
-  customerGroup?: Boolean;
+  giftCertificatesLabel?: string;
+  giftCertificatesHref: string;
+  giftCertificatesEnabled?: Streamable<boolean>;
 }
 
 const MobileMenuButton = forwardRef<
@@ -273,6 +287,7 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
     linksPosition = 'center',
     activeLocaleId,
     locales,
+    localeAction,
     currencies: streamableCurrencies,
     activeCurrencyId: streamableActiveCurrencyId,
     currencyAction,
@@ -287,7 +302,9 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
     searchLabel = 'Search',
     mobileMenuTriggerLabel = 'Toggle navigation',
     switchCurrencyLabel,
-    customerGroup,
+    giftCertificatesLabel = 'Gift Certificates',
+    giftCertificatesHref,
+    giftCertificatesEnabled: streamableGiftCertificatesEnabled,
   }: Props<S>,
   ref: Ref<HTMLDivElement>,
 ) {
@@ -396,6 +413,7 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
                       {/* Locale / Language Dropdown */}
                       {locales.length > 1 ? (
                         <LocaleSwitcher
+                          action={localeAction}
                           activeLocaleId={activeLocaleId}
                           // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
                           locales={locales as [Locale, Locale, ...Locale[]]}
@@ -484,9 +502,7 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
             value={streamableLinks}
           >
             {(links) =>
-              links
-              .filter(item => customerGroup || !['Your First Box', 'Special Boxes'].includes(item.label)) // hide these if not
-              .map((item, i) => (
+              links.map((item, i) => (
                 <NavigationMenu.Item key={i} value={i.toString()}>
                   <NavigationMenu.Trigger asChild>
                     <Link
@@ -599,9 +615,24 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
             </Stream>
           </Link>
 
+          <Stream fallback={null} value={streamableGiftCertificatesEnabled}>
+            {(giftCertificatesEnabled) =>
+              giftCertificatesEnabled && (
+                <Link
+                  aria-label={giftCertificatesLabel}
+                  className={navButtonClassName}
+                  href={giftCertificatesHref}
+                >
+                  <GiftIcon size={20} strokeWidth={1} />
+                </Link>
+              )
+            }
+          </Stream>
+
           {/* Locale / Language Dropdown */}
           {locales && locales.length > 1 ? (
             <LocaleSwitcher
+              action={localeAction}
               activeLocaleId={activeLocaleId}
               className="hidden @4xl:block"
               // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
@@ -866,37 +897,53 @@ function SearchResults({
   );
 }
 
-const useSwitchLocale = () => {
+const useSwitchLocale = ({ activeLocale }: { activeLocale: Locale | undefined }) => {
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
 
   return useCallback(
-    (locale: string) =>
+    async (locale: string) => {
+      const localizedPathname = await getLocalizedPathname({
+        pathname,
+        activeLocale: activeLocale?.id,
+        targetLocale: locale,
+      });
+
+      // the Next.js App Router guarantees a `startTransition` call on `router.push`,
+      // so we don’t need to wrap it in an explicit nested call as set out in
+      // https://react.dev/reference/react/useTransition#react-doesnt-treat-my-state-update-after-await-as-a-transition
       router.push(
-        // @ts-expect-error -- TypeScript will validate that only known `params`
-        // are used in combination with a given `pathname`. Since the two will
-        // always match for the current route, we can skip runtime checks.
-        { pathname, params, query: Object.fromEntries(searchParams.entries()) },
+        {
+          pathname: localizedPathname,
+          // @ts-expect-error -- TypeScript will validate that only known `params`
+          // are used in combination with a given `pathname`. Since the two will
+          // always match for the current route, we can skip runtime checks.
+          params,
+          query: Object.fromEntries(searchParams.entries()),
+        },
         { locale },
-      ),
-    [pathname, params, router, searchParams],
+      );
+    },
+    [pathname, activeLocale?.id, params, router, searchParams],
   );
 };
 
 function LocaleSwitcher({
   locales,
   activeLocaleId,
+  action,
   className,
 }: {
   activeLocaleId?: string;
+  action?: LocaleAction;
   locales: [Locale, ...Locale[]];
   className?: string;
 }) {
   const activeLocale = locales.find((locale) => locale.id === activeLocaleId);
   const [isPending, startTransition] = useTransition();
-  const switchLocale = useSwitchLocale();
+  const switchLocale = useSwitchLocale({ activeLocale });
 
   return (
     <div className={className}>
@@ -927,7 +974,14 @@ function LocaleSwitcher({
                   },
                 )}
                 key={id}
-                onSelect={() => startTransition(() => switchLocale(id))}
+                onSelect={() =>
+                  startTransition(async () => {
+                    // Sync the cart's locale first so the shopper lands on the
+                    // new locale with an already-updated cart.
+                    await action?.(id);
+                    await switchLocale(id);
+                  })
+                }
               >
                 {label}
               </DropdownMenu.Item>

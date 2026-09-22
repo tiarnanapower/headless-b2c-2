@@ -1,4 +1,5 @@
 import './components/accordion/register';
+import './components/banner/register';
 import './components/button-link/register';
 import './components/card/register';
 import './components/card-carousel/register';
@@ -15,38 +16,3 @@ import './components/site-header/register';
 import './components/site-theme/register';
 import './components/slideshow/register';
 import './components/sticky-sidebar/register';
-import './components/banner/register';
-
-import { MakeswiftComponentType } from '@makeswift/runtime';
-
-import { runtime } from './runtime';
-
-// Hide some builtin Makeswift components
-
-runtime.registerComponent(() => null, {
-  type: MakeswiftComponentType.Carousel,
-  label: 'Carousel (hidden)',
-  hidden: true,
-  props: {},
-});
-
-runtime.registerComponent(() => null, {
-  type: MakeswiftComponentType.Countdown,
-  label: 'Countdown (hidden)',
-  hidden: true,
-  props: {},
-});
-
-runtime.registerComponent(() => null, {
-  type: MakeswiftComponentType.Form,
-  label: 'Form (hidden)',
-  hidden: true,
-  props: {},
-});
-
-runtime.registerComponent(() => null, {
-  type: MakeswiftComponentType.Navigation,
-  label: 'Navigation (hidden)',
-  hidden: true,
-  props: {},
-});

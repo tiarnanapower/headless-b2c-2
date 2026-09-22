@@ -4,7 +4,6 @@ import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
 import { graphql, VariablesOf } from '~/client/graphql';
 import { FormFieldsFragment } from '~/data-transformers/form-field-transformer/fragment';
-import { bypassReCaptcha } from '~/lib/bypass-recaptcha';
 
 const RegisterCustomerQuery = graphql(
   `
@@ -16,6 +15,17 @@ const RegisterCustomerQuery = graphql(
     ) {
       site {
         settings {
+          customers {
+            passwordComplexitySettings {
+              minimumNumbers
+              minimumPasswordLength
+              minimumSpecialCharacters
+              requireLowerCase
+              requireNumbers
+              requireSpecialCharacters
+              requireUpperCase
+            }
+          }
           formFields {
             customer(filters: $customerFilters, sortBy: $customerSortBy) {
               ...FormFieldsFragment
@@ -25,17 +35,14 @@ const RegisterCustomerQuery = graphql(
             }
           }
         }
-        settings {
-          reCaptcha {
-            isEnabledOnStorefront
-            siteKey
-          }
-        }
       }
       geography {
         countries {
           code
           name
+          statesOrProvinces {
+            entityId
+          }
         }
       }
     }
@@ -75,8 +82,8 @@ export const getRegisterCustomerQuery = cache(async ({ address, customer }: Prop
   const addressFields = response.data.site.settings?.formFields.shippingAddress;
   const customerFields = response.data.site.settings?.formFields.customer;
   const countries = response.data.geography.countries;
-
-  const reCaptchaSettings = await bypassReCaptcha(response.data.site.settings?.reCaptcha);
+  const passwordComplexitySettings =
+    response.data.site.settings?.customers?.passwordComplexitySettings;
 
   if (!addressFields || !customerFields) {
     return null;
@@ -85,7 +92,7 @@ export const getRegisterCustomerQuery = cache(async ({ address, customer }: Prop
   return {
     addressFields,
     customerFields,
-    reCaptchaSettings,
     countries,
+    passwordComplexitySettings,
   };
 });
