@@ -1,10 +1,10 @@
 {
   "name": "@bigcommerce/catalyst-makeswift",
   "description": "BigCommerce Catalyst is a Next.js starter kit for building headless BigCommerce storefronts.",
-  "version": "1.12.1",
+  "version": "1.13.0",
   "catalyst": {
-    "version": "1.12.1",
-    "ref": "@bigcommerce/catalyst-makeswift@1.12.1"
+    "version": "1.13.0",
+    "ref": "@bigcommerce/catalyst-makeswift@1.13.0"
   },
   "private": true,
   "engines": {
@@ -23,12 +23,12 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
-    "@bigcommerce/catalyst-client": "workspace:^",
+    "@bigcommerce/catalyst-client": "^1.0.4",
     "@c15t/nextjs": "^1.8.2",
     "@conform-to/react": "^1.6.1",
     "@conform-to/zod": "^1.6.1",
     "@icons-pack/react-simple-icons": "^11.2.0",
-    "@makeswift/runtime": "0.28.5",
+    "@makeswift/runtime": "0.29.2",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "^0.208.0",
     "@opentelemetry/instrumentation": "^0.208.0",
@@ -92,7 +92,7 @@
   "devDependencies": {
     "@0no-co/graphqlsp": "^1.12.16",
     "@bigcommerce/eslint-config": "^2.11.0",
-    "@bigcommerce/eslint-config-catalyst": "workspace:^",
+    "@bigcommerce/eslint-config-catalyst": "^1.0.0",
     "@faker-js/faker": "^9.8.0",
     "@gql.tada/cli-utils": "^1.6.3",
     "@next/bundle-analyzer": "^16.1.6",
