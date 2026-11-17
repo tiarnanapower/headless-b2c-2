@@ -8,6 +8,7 @@ import { client } from '~/client';
 import { graphql, VariablesOf } from '~/client/graphql';
 import { TAGS } from '~/client/tags';
 import { getCartId } from '~/lib/cart';
+import { isBundleComponentLine, reconcileBundles } from '~/lib/bundles-cart';
 
 import { removeItem } from './remove-item';
 
@@ -55,6 +56,10 @@ export const updateQuantity = async ({
     throw new Error(t('lineItemNotFound'));
   }
 
+  if (await isBundleComponentLine(cartId, lineItemEntityId)) {
+    throw new Error('Items that come with a bundle change when you change the bundle.');
+  }
+
   if (quantity === 0) {
     const result = await removeItem({ lineItemEntityId });
 
@@ -87,6 +92,9 @@ export const updateQuantity = async ({
   if (!cart) {
     throw new Error(t('failedToUpdateQuantity'));
   }
+
+  // If this was a bundle, scale the free items to match the new quantity.
+  await reconcileBundles(cartId);
 
   revalidateTag(TAGS.cart, { expire: 0 });
 

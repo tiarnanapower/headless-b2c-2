@@ -9,6 +9,7 @@ import { client } from '~/client';
 import { graphql } from '~/client/graphql';
 import { redirect } from '~/i18n/navigation-server';
 import { getVisitIdCookie, getVisitorIdCookie } from '~/lib/analytics/bigcommerce';
+import { reconcileBundles } from '~/lib/bundles-cart';
 import { getCartId } from '~/lib/cart';
 import { getConsentCookie } from '~/lib/consent-manager/cookies/server';
 import { serverToast } from '~/lib/server-toast';
@@ -64,6 +65,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ loca
     await serverToast.error(t('cartNotFound'));
 
     return await redirect({ href: '/cart', locale });
+  }
+
+  // Never send a cart to checkout with free bundle items whose bundle has been removed.
+  try {
+    await reconcileBundles(cartId);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Could not check bundles before checkout', error);
   }
 
   const visitId = await getVisitIdCookie();

@@ -595,8 +595,10 @@ export default async function Product({ params, searchParams }: Props) {
           decrementLabel={t('ProductDetails.decreaseQuantity')}
           emptySelectPlaceholder={t('ProductDetails.emptySelectPlaceholder')}
           fields={productOptionsTransformer(baseProduct.productOptions).then((productFields) => [
-            // The "Bundle" text customisation only marks the product as a bundle, so hide it.
-            ...productFields.filter((field) => field.name !== String(bundleInfo?.textOptionEntityId)),
+            // The "Bundle" and "Bundle_Options" text customisations are settings, so hide them.
+            ...productFields.filter(
+              (field) => !bundleInfo?.hiddenOptionEntityIds.includes(Number(field.name)),
+            ),
             ...bundleFields,
           ])}
           incrementLabel={t('ProductDetails.increaseQuantity')}

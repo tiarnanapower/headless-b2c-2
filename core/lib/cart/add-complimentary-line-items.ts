@@ -2,6 +2,8 @@ import { revalidateTag } from 'next/cache';
 
 import { TAGS } from '~/client/tags';
 
+import { BundleRestCart, bundleApi } from '../bundles-cart';
+
 interface ComplimentaryItem {
   productEntityId: number;
   variantEntityId?: number;
@@ -9,27 +11,18 @@ interface ComplimentaryItem {
 }
 
 /**
- * Adds line items to an existing cart at a list price of 0, using the Management API.
- * The Storefront GraphQL API can't override prices, so this needs BIGCOMMERCE_ACCESS_TOKEN
- * with modify access to Carts.
+ * Adds line items to an existing cart at a list price of 0, using the Management API, and returns
+ * the updated cart. The Storefront GraphQL API can't override prices, so this needs
+ * BIGCOMMERCE_ACCESS_TOKEN with modify access to Carts.
  */
-export async function addComplimentaryLineItems(cartId: string, items: ComplimentaryItem[]) {
-  const storeHash = process.env.BIGCOMMERCE_STORE_HASH;
-  const accessToken = process.env.BIGCOMMERCE_ACCESS_TOKEN;
-
-  if (!storeHash || !accessToken) {
-    throw new Error('Bundles need BIGCOMMERCE_STORE_HASH and BIGCOMMERCE_ACCESS_TOKEN to be set.');
-  }
-
-  const response = await fetch(
-    `https://api.bigcommerce.com/stores/${storeHash}/v3/carts/${cartId}/items`,
+export async function addComplimentaryLineItems(
+  cartId: string,
+  items: ComplimentaryItem[],
+): Promise<BundleRestCart> {
+  const response = await bundleApi(
+    `/carts/${cartId}/items?include=line_items.physical_items.options`,
     {
       method: 'POST',
-      headers: {
-        'X-Auth-Token': accessToken,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
       body: JSON.stringify({
         line_items: items.map((item) => ({
           product_id: item.productEntityId,
@@ -38,7 +31,6 @@ export async function addComplimentaryLineItems(cartId: string, items: Complimen
           list_price: 0,
         })),
       }),
-      cache: 'no-store',
     },
   );
 
@@ -50,4 +42,8 @@ export async function addComplimentaryLineItems(cartId: string, items: Complimen
   }
 
   revalidateTag(TAGS.cart, { expire: 0 });
+
+  const json = (await response.json()) as { data: BundleRestCart };
+
+  return json.data;
 }

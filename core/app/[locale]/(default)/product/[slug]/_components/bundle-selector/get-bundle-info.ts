@@ -4,7 +4,13 @@ import { cache } from 'react';
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
 import { revalidate } from '~/client/revalidate-target';
-import { BUNDLE_OPTION_NAME, BundleConfig, getBundleConfig } from '~/lib/bundles';
+import {
+  BUNDLE_OPTION_NAME,
+  BUNDLE_OPTIONS_NAME,
+  BundleConfig,
+  getBundleConfig,
+  parseBundleSlots,
+} from '~/lib/bundles';
 
 const BundleProductQuery = graphql(`
   query BundleProductQuery($entityId: Int!) {
@@ -28,12 +34,20 @@ const BundleProductQuery = graphql(`
   }
 `);
 
+export interface HiddenTextOption {
+  entityId: number;
+  /** Default text set in BigCommerce, if any. */
+  defaultText: string | null;
+}
+
 export interface BundleInfo {
   config: BundleConfig;
-  /** Entity id of the hidden "Bundle" text customisation. */
-  textOptionEntityId: number;
-  /** Its default text, still sent with the cart line so the line looks like it always did. */
-  defaultText: string | null;
+  /** The "Bundle" text customisation that marks the product as a bundle. */
+  bundleOption: HiddenTextOption;
+  /** The optional "Bundle_Options" text customisation (number of dropdowns). */
+  optionsOption: HiddenTextOption | null;
+  /** Entity ids of customisations to hide from shoppers. */
+  hiddenOptionEntityIds: number[];
 }
 
 /**
@@ -49,15 +63,30 @@ export const getBundleInfo = cache(async (productEntityId: number): Promise<Bund
 
   if (!data.site.product) return null;
 
-  const textOption = removeEdgesAndNodes(data.site.product.productOptions).find(
-    (option) => option.__typename === 'TextFieldOption' && BUNDLE_OPTION_NAME.test(option.displayName),
+  const textOptions = removeEdgesAndNodes(data.site.product.productOptions).flatMap((option) =>
+    option.__typename === 'TextFieldOption'
+      ? [
+          {
+            name: option.displayName,
+            entityId: option.entityId,
+            defaultText: option.defaultText ?? null,
+          },
+        ]
+      : [],
   );
 
-  if (!textOption || textOption.__typename !== 'TextFieldOption') return null;
+  const bundle = textOptions.find((option) => BUNDLE_OPTION_NAME.test(option.name));
+
+  if (!bundle) return null;
+
+  const options = textOptions.find((option) => BUNDLE_OPTIONS_NAME.test(option.name));
 
   return {
-    config: getBundleConfig(productEntityId),
-    textOptionEntityId: textOption.entityId,
-    defaultText: textOption.defaultText ?? null,
+    config: getBundleConfig(productEntityId, parseBundleSlots(options?.defaultText)),
+    bundleOption: { entityId: bundle.entityId, defaultText: bundle.defaultText },
+    optionsOption: options
+      ? { entityId: options.entityId, defaultText: options.defaultText }
+      : null,
+    hiddenOptionEntityIds: [bundle.entityId, ...(options ? [options.entityId] : [])],
   };
 });

@@ -7,6 +7,8 @@ import { Cart as CartComponent, CartEmptyState } from '@/vibes/soul/sections/car
 import { CartAnalyticsProvider } from '~/app/[locale]/(default)/cart/_components/cart-analytics-provider';
 import { ClientWalletButtons } from '~/components/wallet-buttons';
 import { pricesTransformer } from '~/data-transformers/prices-transformer';
+import { BUNDLE_OPTION_NAME, BUNDLE_OPTIONS_NAME } from '~/lib/bundles';
+import { BundleGroup, reconcileBundles } from '~/lib/bundles-cart';
 import { getCartId } from '~/lib/cart';
 import { getPreferredCurrencyCode } from '~/lib/currency';
 import { getMakeswiftPageMetadata } from '~/lib/makeswift';
@@ -133,6 +135,21 @@ export default async function Cart({ params }: Props) {
     return emptyState;
   }
 
+  // Keep free bundle items in step with their bundle before showing the cart.
+  let bundleGroups: BundleGroup[] = [];
+
+  try {
+    bundleGroups = await reconcileBundles(cartId);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Could not check bundles in the cart', error);
+  }
+
+  const bundleComponentLineIds = new Set(
+    bundleGroups.flatMap((group) => group.components.map((component) => component.lineId)),
+  );
+  const bundleGroupsByLine = new Map(bundleGroups.map((group) => [group.bundleLineId, group]));
+
   const currencyCode = await getPreferredCurrencyCode();
   const data = await getCart({ cartId, currencyCode });
 
@@ -167,7 +184,12 @@ export default async function Cart({ params }: Props) {
     ...cart.lineItems.giftCertificates,
     ...cart.lineItems.physicalItems,
     ...cart.lineItems.digitalItems,
-  ].filter((item) => !('parentEntityId' in item) || !item.parentEntityId);
+  ].filter(
+    (item) =>
+      (!('parentEntityId' in item) || !item.parentEntityId) &&
+      // Free bundle items are shown under their bundle instead of as separate lines.
+      !bundleComponentLineIds.has(item.entityId),
+  );
 
   const formattedLineItems = lineItems.map((item) => {
     if (item.__typename === 'CartGiftCertificate') {
@@ -246,28 +268,42 @@ export default async function Cart({ params }: Props) {
       id: item.entityId,
       quantity: item.quantity,
       price,
-      subtitle: item.selectedOptions
-        .map((option) => {
-          switch (option.__typename) {
-            case 'CartSelectedMultipleChoiceOption':
-            case 'CartSelectedCheckboxOption':
-              return `${option.name}: ${option.value}`;
+      subtitle: [
+        ...item.selectedOptions
+          // The Bundle and Bundle_Options text customisations are settings, not choices.
+          .filter(
+            (option) =>
+              !BUNDLE_OPTION_NAME.test(option.name) && !BUNDLE_OPTIONS_NAME.test(option.name),
+          )
+          .map((option) => {
+            switch (option.__typename) {
+              case 'CartSelectedMultipleChoiceOption':
+              case 'CartSelectedCheckboxOption':
+                return `${option.name}: ${option.value}`;
 
-            case 'CartSelectedNumberFieldOption':
-              return `${option.name}: ${option.number}`;
+              case 'CartSelectedNumberFieldOption':
+                return `${option.name}: ${option.number}`;
 
-            case 'CartSelectedMultiLineTextFieldOption':
-            case 'CartSelectedTextFieldOption':
-              return `${option.name}: ${option.text}`;
+              case 'CartSelectedMultiLineTextFieldOption':
+              case 'CartSelectedTextFieldOption':
+                return `${option.name}: ${option.text}`;
 
-            case 'CartSelectedDateFieldOption':
-              return `${option.name}: ${format.dateTime(new Date(option.date.utc))}`;
+              case 'CartSelectedDateFieldOption':
+                return `${option.name}: ${format.dateTime(new Date(option.date.utc))}`;
 
-            default:
-              return '';
-          }
-        })
-        .join(', '),
+              default:
+                return '';
+            }
+          })
+          .filter(Boolean),
+        ...(bundleGroupsByLine.has(item.entityId)
+          ? [
+              `Includes: ${(bundleGroupsByLine.get(item.entityId)?.components ?? [])
+                .map((c) => (c.perBundle > 1 ? `${c.perBundle} x ${c.label}` : c.label))
+                .join(', ')}`,
+            ]
+          : []),
+      ].join(', '),
       title: item.name,
       image: item.image?.url ? { src: item.image.url, alt: item.name } : undefined,
       href: new URL(item.url).pathname,

@@ -19,6 +19,23 @@ export interface BundleConfig {
 /** The text customisation that marks a product as a bundle (matched case-insensitively). */
 export const BUNDLE_OPTION_NAME = /^\s*bundle\s*$/i;
 
+/**
+ * Optional second text customisation. Its default value is the number of dropdowns for this
+ * bundle (for example 3). Missing, empty or invalid values fall back to the default.
+ */
+export const BUNDLE_OPTIONS_NAME = /^\s*bundle[_ ]options\s*$/i;
+
+/** Upper limit on dropdowns, so a typo in BigCommerce can't create a huge form. */
+export const MAX_BUNDLE_SLOTS = 10;
+
+export function parseBundleSlots(text: string | null | undefined): number | undefined {
+  const value = Number.parseInt((text ?? '').trim(), 10);
+
+  if (!Number.isFinite(value) || value < 1) return undefined;
+
+  return Math.min(value, MAX_BUNDLE_SLOTS);
+}
+
 /** Used for any bundle product that has no entry in `bundleOverrides`. */
 export const defaultBundleConfig: BundleConfig = {
   slots: 2,
@@ -30,8 +47,13 @@ export const bundleOverrides: Record<number, Partial<BundleConfig>> = {
   // 1858: { slots: 3, slotLabel: 'Choose kit' },
 };
 
-export function getBundleConfig(productEntityId: number): BundleConfig {
-  return { ...defaultBundleConfig, ...bundleOverrides[productEntityId] };
+/** Order of precedence for the number of dropdowns: Bundle_Options, then overrides, then default. */
+export function getBundleConfig(productEntityId: number, slotsFromOption?: number): BundleConfig {
+  return {
+    ...defaultBundleConfig,
+    ...bundleOverrides[productEntityId],
+    ...(slotsFromOption ? { slots: slotsFromOption } : {}),
+  };
 }
 
 /** Bundle dropdown names look like `bundle-slot-<slotNumber>`. */

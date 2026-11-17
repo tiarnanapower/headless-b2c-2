@@ -1,6 +1,7 @@
 'use server';
 
 import { BigCommerceGQLError } from '@bigcommerce/catalyst-client';
+import { randomBytes } from 'node:crypto';
 import { SubmissionResult } from '@conform-to/react';
 import { parseWithZod } from '@conform-to/zod';
 import { getTranslations } from 'next-intl/server';
@@ -10,11 +11,10 @@ import { Field, schema } from '@/vibes/soul/sections/product-detail/schema';
 import { graphql } from '~/client/graphql';
 import { Link } from '~/components/link';
 import { BUNDLE_SLOT_PREFIX, parseBundleSlotName } from '~/lib/bundles';
-import { addToOrCreateCart, getCartId } from '~/lib/cart';
-import { addComplimentaryLineItems } from '~/lib/cart/add-complimentary-line-items';
+import { addToOrCreateCart } from '~/lib/cart';
 import { MissingCartError } from '~/lib/cart/error';
 
-import { BundleComponent, getBundleComponents } from '../_components/bundle-selector/get-bundle-components';
+import { addBundleComponents } from '../_components/bundle-selector/add-bundle-components';
 import { getBundleInfo } from '../_components/bundle-selector/get-bundle-info';
 
 type CartSelectedOptionsInput = ReturnType<typeof graphql.scalar<'CartSelectedOptionsInput'>>;
@@ -159,17 +159,27 @@ export const addToCart = async (
     }
   }, {});
 
-  // The hidden "Bundle" text customisation isn't a form field, so send its default text ourselves.
-  const selectedOptions: CartSelectedOptionsInput =
-    bundleInfo?.defaultText
-      ? {
-          ...fieldOptions,
-          textFields: [
-            ...(fieldOptions.textFields ?? []),
-            { optionEntityId: bundleInfo.textOptionEntityId, text: bundleInfo.defaultText },
-          ],
-        }
-      : fieldOptions;
+  // The hidden "Bundle" text customisation isn't a form field. Its value is a random id that makes
+  // every bundle its own cart line, and lets us find that line again afterwards.
+  const instanceId = randomBytes(4).toString('hex');
+
+  const selectedOptions: CartSelectedOptionsInput = bundleInfo
+    ? {
+        ...fieldOptions,
+        textFields: [
+          ...(fieldOptions.textFields ?? []),
+          { optionEntityId: bundleInfo.bundleOption.entityId, text: instanceId },
+          ...(bundleInfo.optionsOption?.defaultText
+            ? [
+                {
+                  optionEntityId: bundleInfo.optionsOption.entityId,
+                  text: bundleInfo.optionsOption.defaultText,
+                },
+              ]
+            : []),
+        ],
+      }
+    : fieldOptions;
 
   try {
     await addToOrCreateCart({
@@ -183,44 +193,14 @@ export const addToCart = async (
     });
 
     if (bundleInfo) {
-      // Re-read the components on the server rather than trusting what the browser sent.
-      const components = await getBundleComponents(productEntityId);
-      const optional = new Map(
-        components.filter((component) => !component.mandatory).map((c) => [c.key, c]),
-      );
-      const lines = new Map<string, { component: BundleComponent; quantity: number }>();
-
-      const addLine = (component: BundleComponent, units: number) => {
-        const existing = lines.get(component.key);
-
-        lines.set(component.key, { component, quantity: (existing?.quantity ?? 0) + units });
-      };
-
-      // Mandatory components always come with the bundle.
-      components
-        .filter((component) => component.mandatory)
-        .forEach((component) => addLine(component, component.quantity * quantity));
-
-      prevState.fields.forEach((field) => {
-        if (!parseBundleSlotName(field.name)) return;
-
-        const component = optional.get(String(submission.value[field.name]));
-
-        if (component) addLine(component, component.quantity * quantity);
+      await addBundleComponents({
+        productEntityId,
+        quantity,
+        instanceId,
+        chosenKeys: prevState.fields
+          .filter((field) => parseBundleSlotName(field.name))
+          .map((field) => String(submission.value[field.name])),
       });
-
-      const cartId = await getCartId();
-
-      if (cartId && lines.size > 0) {
-        await addComplimentaryLineItems(
-          cartId,
-          [...lines.values()].map(({ component, quantity: units }) => ({
-            productEntityId: component.productEntityId,
-            variantEntityId: component.variantEntityId,
-            quantity: units,
-          })),
-        );
-      }
     }
 
     return {

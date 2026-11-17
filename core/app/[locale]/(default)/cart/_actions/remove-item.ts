@@ -8,6 +8,7 @@ import { client } from '~/client';
 import { graphql, VariablesOf } from '~/client/graphql';
 import { TAGS } from '~/client/tags';
 import { clearCartId, getCartId } from '~/lib/cart';
+import { getBundleRestCart, isBundleComponentLine, reconcileBundles } from '~/lib/bundles-cart';
 
 const DeleteCartLineItemMutation = graphql(`
   mutation DeleteCartLineItemMutation($input: DeleteCartLineItemInput!) {
@@ -41,6 +42,11 @@ export async function removeItem({
     throw new Error(t('lineItemNotFound'));
   }
 
+  // Free bundle items can't be removed on their own; removing the bundle removes them.
+  if (await isBundleComponentLine(cartId, lineItemEntityId)) {
+    throw new Error('Items that come with a bundle can only be removed by removing the bundle.');
+  }
+
   const response = await client.fetch({
     document: DeleteCartLineItemMutation,
     variables: {
@@ -60,6 +66,13 @@ export async function removeItem({
   // TODO: We need to figure out if it actually failed.
   if (!cart) {
     await clearCartId();
+  } else {
+    // If that was a bundle, remove the free items that came with it.
+    await reconcileBundles(cartId);
+
+    if (!(await getBundleRestCart(cartId))) {
+      await clearCartId();
+    }
   }
 
   revalidateTag(TAGS.cart, { expire: 0 });
