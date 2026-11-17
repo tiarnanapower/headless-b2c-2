@@ -9,8 +9,13 @@ import { ReactNode } from 'react';
 import { Field, schema } from '@/vibes/soul/sections/product-detail/schema';
 import { graphql } from '~/client/graphql';
 import { Link } from '~/components/link';
-import { addToOrCreateCart } from '~/lib/cart';
+import { BUNDLE_SLOT_PREFIX, parseBundleSlotName } from '~/lib/bundles';
+import { addToOrCreateCart, getCartId } from '~/lib/cart';
+import { addComplimentaryLineItems } from '~/lib/cart/add-complimentary-line-items';
 import { MissingCartError } from '~/lib/cart/error';
+
+import { BundleComponent, getBundleComponents } from '../_components/bundle-selector/get-bundle-components';
+import { getBundleInfo } from '../_components/bundle-selector/get-bundle-info';
 
 type CartSelectedOptionsInput = ReturnType<typeof graphql.scalar<'CartSelectedOptionsInput'>>;
 
@@ -39,7 +44,12 @@ export const addToCart = async (
   const productEntityId = Number(submission.value.id);
   const quantity = Number(submission.value.quantity);
 
-  const selectedOptions = prevState.fields.reduce<CartSelectedOptionsInput>((accum, field) => {
+  const bundleInfo = await getBundleInfo(productEntityId);
+
+  const fieldOptions = prevState.fields.reduce<CartSelectedOptionsInput>((accum, field) => {
+    // Bundle dropdowns aren't product options; they're handled after the bundle itself is added.
+    if (field.name.startsWith(BUNDLE_SLOT_PREFIX)) return accum;
+
     const optionValueEntityId = submission.value[field.name];
 
     let multipleChoicesOptionInput;
@@ -149,6 +159,18 @@ export const addToCart = async (
     }
   }, {});
 
+  // The hidden "Bundle" text customisation isn't a form field, so send its default text ourselves.
+  const selectedOptions: CartSelectedOptionsInput =
+    bundleInfo?.defaultText
+      ? {
+          ...fieldOptions,
+          textFields: [
+            ...(fieldOptions.textFields ?? []),
+            { optionEntityId: bundleInfo.textOptionEntityId, text: bundleInfo.defaultText },
+          ],
+        }
+      : fieldOptions;
+
   try {
     await addToOrCreateCart({
       lineItems: [
@@ -159,6 +181,47 @@ export const addToCart = async (
         },
       ],
     });
+
+    if (bundleInfo) {
+      // Re-read the components on the server rather than trusting what the browser sent.
+      const components = await getBundleComponents(productEntityId);
+      const optional = new Map(
+        components.filter((component) => !component.mandatory).map((c) => [c.key, c]),
+      );
+      const lines = new Map<string, { component: BundleComponent; quantity: number }>();
+
+      const addLine = (component: BundleComponent, units: number) => {
+        const existing = lines.get(component.key);
+
+        lines.set(component.key, { component, quantity: (existing?.quantity ?? 0) + units });
+      };
+
+      // Mandatory components always come with the bundle.
+      components
+        .filter((component) => component.mandatory)
+        .forEach((component) => addLine(component, component.quantity * quantity));
+
+      prevState.fields.forEach((field) => {
+        if (!parseBundleSlotName(field.name)) return;
+
+        const component = optional.get(String(submission.value[field.name]));
+
+        if (component) addLine(component, component.quantity * quantity);
+      });
+
+      const cartId = await getCartId();
+
+      if (cartId && lines.size > 0) {
+        await addComplimentaryLineItems(
+          cartId,
+          [...lines.values()].map(({ component, quantity: units }) => ({
+            productEntityId: component.productEntityId,
+            variantEntityId: component.variantEntityId,
+            quantity: units,
+          })),
+        );
+      }
+    }
 
     return {
       lastResult: submission.reply(),

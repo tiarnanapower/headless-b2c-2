@@ -21,6 +21,10 @@ import { getMetadataAlternates } from '~/lib/seo/canonical';
 import { addToCart } from './_actions/add-to-cart';
 import { getMoreProductImages } from './_actions/get-more-images';
 import { submitReview } from './_actions/submit-review';
+import { BundleAppScript } from './_components/bundle-app-script';
+import { getBundleComponents } from './_components/bundle-selector/get-bundle-components';
+import { getBundleFields } from './_components/bundle-selector/get-bundle-fields';
+import { getBundleInfo } from './_components/bundle-selector/get-bundle-info';
 import { ProductAnalyticsProvider } from './_components/product-analytics-provider';
 import { ProductSchema } from './_components/product-schema';
 import { ProductViewed } from './_components/product-viewed';
@@ -109,6 +113,11 @@ export default async function Product({ params, searchParams }: Props) {
   if (!baseProduct) {
     return notFound();
   }
+
+  const bundleInfo = await getBundleInfo(productId);
+  const bundleFields = bundleInfo
+    ? getBundleFields(bundleInfo.config, await getBundleComponents(productId))
+    : [];
 
   const streamableProduct = Streamable.from(async () => {
     const variables = {
@@ -585,7 +594,11 @@ export default async function Product({ params, searchParams }: Props) {
           ctaLabel={streameableCtaLabel}
           decrementLabel={t('ProductDetails.decreaseQuantity')}
           emptySelectPlaceholder={t('ProductDetails.emptySelectPlaceholder')}
-          fields={productOptionsTransformer(baseProduct.productOptions)}
+          fields={productOptionsTransformer(baseProduct.productOptions).then((productFields) => [
+            // The "Bundle" text customisation only marks the product as a bundle, so hide it.
+            ...productFields.filter((field) => field.name !== String(bundleInfo?.textOptionEntityId)),
+            ...bundleFields,
+          ])}
           incrementLabel={t('ProductDetails.increaseQuantity')}
           loadMoreImagesAction={getMoreProductImages}
           prefetch={true}
@@ -622,6 +635,8 @@ export default async function Product({ params, searchParams }: Props) {
           user={streamableUser}
         />
       </ProductAnalyticsProvider>
+
+      <BundleAppScript productId={productId} productName={baseProduct.name} />
 
       <Stream fallback={null} value={streamableVideos}>
         {(videos) => videos.length > 0 && <ProductVideos videos={videos} />}

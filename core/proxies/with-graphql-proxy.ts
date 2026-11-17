@@ -23,8 +23,11 @@ export const withGraphqlProxy: ProxyFactory = (next) => {
 
     const requester = request.headers.get('x-catalyst-graphql-proxy-requester');
 
-    // Validate required header
-    if (!requester || !ALLOWED_REQUESTERS.includes(requester)) {
+    // Validate required header. When the bundle app is enabled, also answer requests that don't
+    // send the header: its script was built for Stencil and posts to /graphql on this origin.
+    const isAllowedRequester = Boolean(requester && ALLOWED_REQUESTERS.includes(requester));
+
+    if (!isAllowedRequester && process.env.BUNDLE_APP_ENABLED !== 'true') {
       return next(request, event);
     }
 
