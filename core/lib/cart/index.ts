@@ -132,9 +132,16 @@ export async function clearCartId(channelId?: string): Promise<void> {
   await writeChannelCart(removeChannelCart(stored, resolvedChannelId));
 }
 
+/**
+ * Adds line items to the current cart, creating the cart first if needed.
+ *
+ * @returns {Promise<string>} The id of the cart that now holds the items. It comes straight from the
+ * API response, because a cart id written to the session cookie during this request can't be read
+ * back until the next request.
+ */
 export async function addToOrCreateCart(
   data: CreateCartInput | AddCartLineItemsInput['data'],
-): Promise<void> {
+): Promise<string> {
   const cartId = await getCartId();
   const cart = await validateCartId(cartId);
 
@@ -147,7 +154,7 @@ export async function addToOrCreateCart(
 
     revalidateTag(TAGS.cart, { expire: 0 });
 
-    return;
+    return cart.entityId;
   }
 
   const createResponse = await createCart(data);
@@ -156,7 +163,11 @@ export async function addToOrCreateCart(
     throw new MissingCartError();
   }
 
-  await setCartId(createResponse.data.cart.createCart.cart.entityId);
+  const newCartId = createResponse.data.cart.createCart.cart.entityId;
+
+  await setCartId(newCartId);
 
   revalidateTag(TAGS.cart, { expire: 0 });
+
+  return newCartId;
 }

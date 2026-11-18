@@ -182,7 +182,7 @@ export const addToCart = async (
     : fieldOptions;
 
   try {
-    await addToOrCreateCart({
+    const cartId = await addToOrCreateCart({
       lineItems: [
         {
           productEntityId,
@@ -194,6 +194,7 @@ export const addToCart = async (
 
     if (bundleInfo) {
       await addBundleComponents({
+        cartId,
         productEntityId,
         quantity,
         instanceId,

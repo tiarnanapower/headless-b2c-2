@@ -1,4 +1,3 @@
-import { getCartId } from '~/lib/cart';
 import { addComplimentaryLineItems } from '~/lib/cart/add-complimentary-line-items';
 import {
   BundleGroup,
@@ -13,6 +12,8 @@ import {
 import { BundleComponent, getBundleComponents } from './get-bundle-components';
 
 interface Params {
+  /** The cart the bundle was just added to (returned by `addToOrCreateCart`). */
+  cartId: string;
   productEntityId: number;
   quantity: number;
   /** The random id that was sent in the bundle line's hidden "Bundle" text. */
@@ -27,15 +28,12 @@ interface Params {
  * components are taken back out, so the cart never keeps free items without a bundle.
  */
 export async function addBundleComponents({
+  cartId,
   productEntityId,
   quantity,
   instanceId,
   chosenKeys,
 }: Params) {
-  const cartId = await getCartId();
-
-  if (!cartId) throw new Error('We could not find your cart. Please try again.');
-
   const before = await getBundleRestCart(cartId);
   const bundleLine = before?.line_items.physical_items.find(
     (line) =>
