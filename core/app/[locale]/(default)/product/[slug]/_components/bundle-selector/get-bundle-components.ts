@@ -30,15 +30,24 @@ const VisibleProductsQuery = graphql(`
 `);
 
 /**
- * Bundle Buddy describes a variant as "Flavour : Blue Raspberry / MG : 10mg". Keep the option values
- * only, so the label reads "Blue Raspberry / 10mg" and no value is lost.
+ * Bundle Buddy describes a variant as "Flavour : Blue Raspberry;;MG : 10mg" (the order of the options
+ * varies, and some responses use " / " instead of ";;"). Keep the option values only, in a fixed order
+ * (by option name), so the label reads "Blue Raspberry / 10mg" and no value is lost.
  */
 export function variantOptionValues(optionDetails: string | null | undefined): string | undefined {
   const values = (optionDetails ?? '')
     .replace(/^\s*\(|\)\s*$/g, '')
-    .split(/\s+\/\s+(?=[^:/]+:)/)
-    .map((part) => part.slice(part.indexOf(':') + 1).trim())
-    .filter(Boolean);
+    .split(/\s*;;\s*|\s+\/\s+(?=[^:/;]+:)/)
+    .map((part) => {
+      const colon = part.indexOf(':');
+
+      return colon < 0
+        ? { name: '', value: part.trim() }
+        : { name: part.slice(0, colon).trim(), value: part.slice(colon + 1).trim() };
+    })
+    .filter(({ value }) => value !== '')
+    .sort((x, y) => x.name.localeCompare(y.name))
+    .map(({ value }) => value);
 
   return values.length > 0 ? values.join(' / ') : undefined;
 }
