@@ -135,6 +135,10 @@ export default async function Cart({ params }: Props) {
     return emptyState;
   }
 
+
+    console.log(`[cart] cart id: ${cartId}`);
+
+
   // Keep free bundle items in step with their bundle before showing the cart.
   let bundleGroups: BundleGroup[] = [];
 
