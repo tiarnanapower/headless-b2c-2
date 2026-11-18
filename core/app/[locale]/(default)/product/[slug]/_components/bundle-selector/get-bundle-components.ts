@@ -29,6 +29,20 @@ const VisibleProductsQuery = graphql(`
   }
 `);
 
+/**
+ * Bundle Buddy describes a variant as "Flavour : Blue Raspberry / MG : 10mg". Keep the option values
+ * only, so the label reads "Blue Raspberry / 10mg" and no value is lost.
+ */
+export function variantOptionValues(optionDetails: string | null | undefined): string | undefined {
+  const values = (optionDetails ?? '')
+    .replace(/^\s*\(|\)\s*$/g, '')
+    .split(/\s+\/\s+(?=[^:/]+:)/)
+    .map((part) => part.slice(part.indexOf(':') + 1).trim())
+    .filter(Boolean);
+
+  return values.length > 0 ? values.join(' / ') : undefined;
+}
+
 const detailSchema = z
   .object({
     product_id: z.number(),
@@ -84,15 +98,16 @@ export const getBundleComponents = cache(
       .map<BundleComponent>((detail) => {
         const variantEntityId = Number(detail.destination_variant_id) || undefined;
         const isVariant = String(detail.is_variant) === 'true' && variantEntityId;
-        // option_details looks like "Flavour : Blueberry".
-        const optionValue = detail.option_details?.split(':').pop()?.trim();
+        const optionValue = variantOptionValues(detail.option_details);
 
         return {
           key: `${detail.product_id}:${isVariant ? variantEntityId : 0}`,
           productEntityId: detail.product_id,
           variantEntityId: isVariant ? variantEntityId : undefined,
           label:
-            isVariant && optionValue ? `${detail.product_name} - ${optionValue}` : detail.product_name,
+            isVariant && optionValue
+              ? `${detail.product_name} - ${optionValue}`
+              : detail.product_name,
           mandatory: Boolean(detail.is_mandatory),
           quantity: detail.min_qty ?? 1,
         };
