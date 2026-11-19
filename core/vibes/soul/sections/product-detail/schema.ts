@@ -20,11 +20,13 @@ type SelectField = {
   defaultValue?: string;
   /**
    * Optional: list different options depending on the value of another field in the same form.
-   * `optionsByValue` is keyed by that field's value. If the field has no matching value, `options`
-   * is used. When the other field changes and the selected option is no longer listed, it is cleared.
+   * `optionsByValue` is keyed by that field's value. While the other field has no value (or no
+   * matching one) the select is disabled and empty, and shows `placeholder` if it is set. When the
+   * other field changes and the selected option is no longer listed, it is cleared.
    */
   filteredBy?: {
     field: string;
+    placeholder?: string;
     optionsByValue: Record<string, Array<{ label: string; value: string }>>;
   };
 } & FormField;

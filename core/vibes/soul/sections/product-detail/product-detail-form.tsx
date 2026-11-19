@@ -270,7 +270,7 @@ export function ProductDetailForm<F extends Field>({
                 : undefined;
             const filteredOptions =
               field.type === 'select' && field.filteredBy
-                ? (field.filteredBy.optionsByValue[filterValue ?? ''] ?? field.options)
+                ? (field.filteredBy.optionsByValue[filterValue ?? ''] ?? [])
                 : undefined;
 
             return (
@@ -534,9 +534,14 @@ function FormField({
           onBlur={controls.blur}
           onFocus={controls.focus}
           onOptionMouseEnter={handleOnOptionMouseEnter}
+          disabled={filteredOptions?.length === 0}
           onValueChange={handleChange}
           options={filteredOptions ?? field.options}
-          placeholder={emptySelectPlaceholder}
+          placeholder={
+            filteredOptions?.length === 0 && field.filteredBy?.placeholder
+              ? field.filteredBy.placeholder
+              : emptySelectPlaceholder
+          }
           required={formField.required}
           value={controls.value ?? ''}
         />

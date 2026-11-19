@@ -65,8 +65,9 @@ function labelWithout(component: BundleComponent, optionName: string) {
 
 /**
  * Extra product-form fields. The dropdown options are the bundle's optional components from Bundle
- * Buddy, one dropdown per slot. When the variants share an option such as MG, a filter (buttons such
- * as 10mg | 20mg) comes first and every dropdown only lists the variants for the chosen value.
+ * Buddy, one dropdown per slot. When the variants share an option such as MG, a required filter
+ * dropdown (10mg, 20mg) comes first. The flavour dropdowns stay disabled until a value is chosen,
+ * then only list the variants for it.
  */
 export function getBundleFields(config: BundleConfig, components: BundleComponent[]): Field[] {
   const optional = components.filter((component) => !component.mandatory);
@@ -120,17 +121,19 @@ export function getBundleFields(config: BundleConfig, components: BundleComponen
     ]),
   );
 
+  const filterLabel = config.filterLabel ?? filterName;
+
   return [
     {
-      type: 'button-radio-group' as const,
+      type: 'select' as const,
       name: BUNDLE_FILTER_NAME,
-      label: config.filterLabel ?? filterName,
+      label: filterLabel,
       required: true,
-      defaultValue: filterValues[0],
       options: filterValues.map((value) => ({ label: value, value })),
     },
-    ...slots(optionsByValue[filterValues[0] ?? ''] ?? allOptions, {
+    ...slots([], {
       field: BUNDLE_FILTER_NAME,
+      placeholder: `Choose ${filterLabel} first`,
       optionsByValue,
     }),
   ];

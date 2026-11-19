@@ -145,7 +145,7 @@ export const getBundleComponents = cache(
       fetchOptions: { next: { revalidate: 60 } },
     });
 
-    const visibleIds = new Set(data.site.products.edges.map((edge) => edge.node.entityId));
+    const visibleIds = new Set((data.site.products.edges ?? []).map((edge) => edge.node.entityId));
     const hidden = components.filter((c) => !visibleIds.has(c.productEntityId));
 
     if (hidden.length > 0) {

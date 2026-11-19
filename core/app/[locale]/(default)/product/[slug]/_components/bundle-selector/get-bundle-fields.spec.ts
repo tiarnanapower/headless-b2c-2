@@ -66,7 +66,7 @@ describe('findFilterOption', () => {
 });
 
 describe('getBundleFields', () => {
-  it('puts the strength buttons first, then one filtered dropdown per slot', () => {
+  it('puts a required strength dropdown first, then one filtered dropdown per slot', () => {
     const fields = getBundleFields({ ...defaultBundleConfig, slots: 3 }, components);
 
     expect(fields.map((f) => f.name)).toEqual([
@@ -76,14 +76,16 @@ describe('getBundleFields', () => {
       'bundle-slot-3',
     ]);
     expect(fields[0]).toMatchObject({
-      type: 'button-radio-group',
+      type: 'select',
       label: 'MG',
-      defaultValue: '10mg',
+      required: true,
       options: [
         { label: '10mg', value: '10mg' },
         { label: '20mg', value: '20mg' },
       ],
     });
+    // Nothing is preselected, so the shopper has to choose a strength.
+    expect(fields[0]).not.toHaveProperty('defaultValue');
   });
 
   it('lists only the chosen strength, without the strength in the label, and keeps plain products', () => {
@@ -102,8 +104,9 @@ describe('getBundleFields', () => {
       '1860:4',
       '1900:0',
     ]);
-    // The unfiltered options of the field match the default (first) strength.
-    expect(slot.options).toEqual(slot.filteredBy.optionsByValue['10mg']);
+    // Until a strength is chosen the dropdown has no options (the form disables it).
+    expect(slot.options).toEqual([]);
+    expect(slot.filteredBy.placeholder).toBe('Choose MG first');
   });
 
   it('returns plain dropdowns with full labels when there is no filter', () => {
@@ -116,6 +119,11 @@ describe('getBundleFields', () => {
   });
 
   it('returns nothing when there are no optional components', () => {
-    expect(getBundleFields(defaultBundleConfig, components.map((c) => ({ ...c, mandatory: true })))).toEqual([]);
+    expect(
+      getBundleFields(
+        defaultBundleConfig,
+        components.map((c) => ({ ...c, mandatory: true })),
+      ),
+    ).toEqual([]);
   });
 });
