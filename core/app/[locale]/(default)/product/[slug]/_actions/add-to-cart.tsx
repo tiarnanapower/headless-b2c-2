@@ -10,7 +10,7 @@ import { ReactNode } from 'react';
 import { Field, schema } from '@/vibes/soul/sections/product-detail/schema';
 import { graphql } from '~/client/graphql';
 import { Link } from '~/components/link';
-import { BUNDLE_SLOT_PREFIX, parseBundleSlotName } from '~/lib/bundles';
+import { BUNDLE_FILTER_NAME, BUNDLE_SLOT_PREFIX, parseBundleSlotName } from '~/lib/bundles';
 import { addToOrCreateCart } from '~/lib/cart';
 import { MissingCartError } from '~/lib/cart/error';
 
@@ -47,8 +47,11 @@ export const addToCart = async (
   const bundleInfo = await getBundleInfo(productEntityId);
 
   const fieldOptions = prevState.fields.reduce<CartSelectedOptionsInput>((accum, field) => {
-    // Bundle dropdowns aren't product options; they're handled after the bundle itself is added.
-    if (field.name.startsWith(BUNDLE_SLOT_PREFIX)) return accum;
+    // The bundle dropdowns and their filter aren't product options; the dropdowns are handled after
+    // the bundle itself is added.
+    if (field.name.startsWith(BUNDLE_SLOT_PREFIX) || field.name === BUNDLE_FILTER_NAME) {
+      return accum;
+    }
 
     const optionValueEntityId = submission.value[field.name];
 

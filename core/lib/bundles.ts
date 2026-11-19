@@ -14,7 +14,18 @@ export interface BundleConfig {
   slots: number;
   /** Label prefix for each dropdown; the slot number is appended. */
   slotLabel: string;
+  /**
+   * Which variant option becomes the filter shown above the dropdowns (for example "MG", so the
+   * shopper picks 10mg or 20mg once and every flavour dropdown only lists that strength).
+   * Leave it out to detect it automatically, or set `false` to turn the filter off.
+   */
+  filterOption?: string | false;
+  /** Label for the filter. Defaults to the option's own name (for example "MG"). */
+  filterLabel?: string;
 }
+
+/** Name of the filter field in the product form. It is never sent to the cart as a product option. */
+export const BUNDLE_FILTER_NAME = 'bundle-filter';
 
 /** The text customisation that marks a product as a bundle (matched case-insensitively). */
 export const BUNDLE_OPTION_NAME = /^\s*bundle\s*$/i;

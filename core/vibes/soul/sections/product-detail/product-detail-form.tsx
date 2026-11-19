@@ -263,10 +263,21 @@ export function ProductDetailForm<F extends Field>({
         <input name="id" type="hidden" value={productId} />
         <div className="space-y-6 pb-8">
           {fields.map((field) => {
+            // A select can list different options depending on another field (see `filteredBy`).
+            const filterValue =
+              field.type === 'select' && field.filteredBy
+                ? String(formFields[field.filteredBy.field]?.value ?? '')
+                : undefined;
+            const filteredOptions =
+              field.type === 'select' && field.filteredBy
+                ? (field.filteredBy.optionsByValue[filterValue ?? ''] ?? field.options)
+                : undefined;
+
             return (
               <FormField
                 emptySelectPlaceholder={emptySelectPlaceholder}
                 field={field}
+                filteredOptions={filteredOptions}
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 formField={formFields[field.name]!}
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -379,16 +390,33 @@ function SubmitButton({ children, disabled }: { children: ReactNode; disabled?: 
 // eslint-disable-next-line complexity
 function FormField({
   field,
+  filteredOptions,
   formField,
   onPrefetch,
   emptySelectPlaceholder,
 }: {
   field: Field;
+  filteredOptions?: Array<{ label: string; value: string }>;
   formField: FieldMetadata<string | number | boolean | Date | undefined>;
   onPrefetch: (fieldName: string, value: string) => void;
   emptySelectPlaceholder?: string;
 }) {
   const controls = useInputControl(formField);
+
+  // If the other field changed and the chosen option is no longer listed, clear the choice.
+  useEffect(() => {
+    const current = controls.value;
+
+    if (
+      field.type === 'select' &&
+      filteredOptions &&
+      typeof current === 'string' &&
+      current !== '' &&
+      !filteredOptions.some((option) => option.value === current)
+    ) {
+      controls.change('');
+    }
+  }, [controls, field.type, filteredOptions]);
 
   const [, setParams] = useQueryStates(
     field.persist === true ? { [field.name]: parseAsString.withOptions({ shallow: false }) } : {},
@@ -507,7 +535,7 @@ function FormField({
           onFocus={controls.focus}
           onOptionMouseEnter={handleOnOptionMouseEnter}
           onValueChange={handleChange}
-          options={field.options}
+          options={filteredOptions ?? field.options}
           placeholder={emptySelectPlaceholder}
           required={formField.required}
           value={controls.value ?? ''}

@@ -18,6 +18,15 @@ type SelectField = {
   type: 'select';
   options: Array<{ label: string; value: string }>;
   defaultValue?: string;
+  /**
+   * Optional: list different options depending on the value of another field in the same form.
+   * `optionsByValue` is keyed by that field's value. If the field has no matching value, `options`
+   * is used. When the other field changes and the selected option is no longer listed, it is cleared.
+   */
+  filteredBy?: {
+    field: string;
+    optionsByValue: Record<string, Array<{ label: string; value: string }>>;
+  };
 } & FormField;
 
 type CheckboxField = {

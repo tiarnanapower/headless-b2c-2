@@ -4,12 +4,21 @@ import { z } from 'zod';
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
 
+export interface VariantOption {
+  name: string;
+  value: string;
+}
+
 export interface BundleComponent {
   /** `<productId>:<variantId or 0>`; also the value of the matching dropdown option. */
   key: string;
   productEntityId: number;
   variantEntityId?: number;
+  /** Full label, for example "IVG Nic Salt E-Liquid - Blue Raspberry / 10mg". */
   label: string;
+  productName: string;
+  /** The variant's options, for example [{ name: 'Flavour', value: 'Blue Raspberry' }, { name: 'MG', value: '10mg' }]. */
+  variantOptions: VariantOption[];
   mandatory: boolean;
   /** Units added per bundle (Bundle Buddy's minimum quantity). */
   quantity: number;
@@ -34,8 +43,8 @@ const VisibleProductsQuery = graphql(`
  * varies, and some responses use " / " instead of ";;"). Keep the option values only, in a fixed order
  * (by option name), so the label reads "Blue Raspberry / 10mg" and no value is lost.
  */
-export function variantOptionValues(optionDetails: string | null | undefined): string | undefined {
-  const values = (optionDetails ?? '')
+export function parseVariantOptions(optionDetails: string | null | undefined): VariantOption[] {
+  return (optionDetails ?? '')
     .replace(/^\s*\(|\)\s*$/g, '')
     .split(/\s*;;\s*|\s+\/\s+(?=[^:/;]+:)/)
     .map((part) => {
@@ -46,8 +55,11 @@ export function variantOptionValues(optionDetails: string | null | undefined): s
         : { name: part.slice(0, colon).trim(), value: part.slice(colon + 1).trim() };
     })
     .filter(({ value }) => value !== '')
-    .sort((x, y) => x.name.localeCompare(y.name))
-    .map(({ value }) => value);
+    .sort((x, y) => x.name.localeCompare(y.name));
+}
+
+export function variantOptionValues(optionDetails: string | null | undefined): string | undefined {
+  const values = parseVariantOptions(optionDetails).map(({ value }) => value);
 
   return values.length > 0 ? values.join(' / ') : undefined;
 }
@@ -108,11 +120,14 @@ export const getBundleComponents = cache(
         const variantEntityId = Number(detail.destination_variant_id) || undefined;
         const isVariant = String(detail.is_variant) === 'true' && variantEntityId;
         const optionValue = variantOptionValues(detail.option_details);
+        const variantOptions = isVariant ? parseVariantOptions(detail.option_details) : [];
 
         return {
           key: `${detail.product_id}:${isVariant ? variantEntityId : 0}`,
           productEntityId: detail.product_id,
           variantEntityId: isVariant ? variantEntityId : undefined,
+          productName: detail.product_name,
+          variantOptions,
           label:
             isVariant && optionValue
               ? `${detail.product_name} - ${optionValue}`
