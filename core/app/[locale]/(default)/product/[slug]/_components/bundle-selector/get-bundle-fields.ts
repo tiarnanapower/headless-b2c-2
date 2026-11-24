@@ -45,10 +45,13 @@ export function findFilterOption(
     return name && (valuesByName.get(name)?.size ?? 0) >= 2 ? name : undefined;
   }
 
-  if (valuesByName.size < 2) return undefined;
-
   return [...valuesByName]
     .filter(([, values]) => values.size >= 2 && values.size <= MAX_FILTER_VALUES)
+    // There must be something left to choose once the filter is taken out (a flavour, or a
+    // different product name), otherwise the dropdowns would show the same label again and again.
+    .filter(
+      ([name]) => new Set(components.map((component) => labelWithout(component, name))).size > 1,
+    )
     .sort(([, a], [, b]) => a.size - b.size)[0]?.[0];
 }
 
@@ -58,9 +61,16 @@ function labelWithout(component: BundleComponent, optionName: string) {
     .filter(({ name }) => name !== optionName)
     .map(({ value }) => value);
 
-  return values.length > 0
-    ? `${component.productName} - ${values.join(' / ')}`
+  // When the strength comes from the product name, take it out of the name too.
+  const filterValue = component.variantOptions.find(({ name }) => name === optionName)?.value;
+  const baseName = filterValue
+    ? component.productName.replace(
+        new RegExp(`\\s*-?\\s*${filterValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'),
+        '',
+      )
     : component.productName;
+
+  return values.length > 0 ? `${baseName} - ${values.join(' / ')}` : baseName;
 }
 
 /**

@@ -120,7 +120,14 @@ export const getBundleComponents = cache(
         const variantEntityId = Number(detail.destination_variant_id) || undefined;
         const isVariant = String(detail.is_variant) === 'true' && variantEntityId;
         const optionValue = variantOptionValues(detail.option_details);
-        const variantOptions = isVariant ? parseVariantOptions(detail.option_details) : [];
+        const parsedOptions = isVariant ? parseVariantOptions(detail.option_details) : [];
+        // Some bundles list each strength as its own product ("... Pod - 20mg (Pre-Duty)") instead of
+        // a variant option. Read the strength from the name so the strength filter still works.
+        const strength = /\b(\d+(?:\.\d+)?)\s*mg\b/i.exec(detail.product_name)?.[1];
+        const variantOptions =
+          parsedOptions.length === 0 && strength
+            ? [{ name: 'MG', value: `${strength}mg` }]
+            : parsedOptions;
 
         return {
           key: `${detail.product_id}:${isVariant ? variantEntityId : 0}`,
